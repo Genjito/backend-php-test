@@ -188,3 +188,38 @@ $app->match('/todo/mark/{id}', function ($id) use ($app) {
 
     return $app->redirect('/todos');
 });
+
+$app->get('/dones/{page}',
+    function ($page) use ($app) {
+        if (null === $user = $app['session']->get('user')) {
+            return $app->redirect('/login');
+        }
+
+        $entityManager = $app['orm.em'];
+        $repository = $entityManager->getRepository(Todo::class);
+        $todos = $repository->findBy(['userId' => $user->getId(), 'completed' => 1]);
+        $todoItems = count($todos);
+
+        // Set items per page
+        $itemsPerPage = 3;
+        $offset = ($page - 1) * $itemsPerPage;
+
+        $pagination = $app['pagination']($todoItems, $page, $itemsPerPage, 2 );
+        $pages      = $pagination->build();
+
+        $todos = $repository->findBy(['userId' => $user->getId(), 'completed' => 1],['id' => 'DESC'], $itemsPerPage, $offset);
+
+        return $app['twig']->render('dones.html', [
+            'todos' => $todos,
+            'pages' => $pages,
+            'current' => $pagination->currentPage()
+        ]);
+    }
+)
+    ->value('page', 1)
+    ->convert(
+        'page',
+        function ($page) {
+            return (int) $page;
+        }
+    );
